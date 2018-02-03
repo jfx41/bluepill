@@ -161,3 +161,55 @@ done
 echo "Remounting all partitions with hardening configurations"
 # Remount everything
 mount -o remount -a
+
+
+#
+# A whole pile of file permissions
+#
+chown root:root /etc/anacrontab
+chmod og-rwx /etc/anacrontab
+chown root:root /etc/crontab
+chmod og-rwx /etc/crontab
+chown root:root /etc/cron.hourly
+chmod og-rwx /etc/cron.hourly
+chown root:root /etc/cron.daily
+chmod og-rwx /etc/cron.daily
+chown root:root /etc/cron.weekly
+chmod og-rwx /etc/cron.weekly
+chown root:root /etc/cron.monthly
+chmod og-rwx /etc/cron.monthly
+chown root:root /etc/cron.d
+chmod og-rwx /etc/cron.d
+
+# Set the right and permissions on “/var/spool/cron” for root crontab
+if [ $ubuntu ]
+then
+	chown root:root /var/spool/cron/crontabs/root
+	chmod og-rwx /var/spool/cron/crontabs/root
+elif [ $centos ]
+then
+	chown root:root /var/spool/cron/root
+	chmod og-rwx /var/spool/cron/root
+fi
+
+# Set User/Group Owner and Permission on “passwd” file
+
+chmod 644 /etc/passwd
+chown root:root /etc/passwd
+
+# Set User/Group Owner and Permission on the “group” file
+
+chmod 644 /etc/group
+chown root:root /etc/group
+
+#Set User/Group Owner and Permission on the “shadow” file
+
+chmod 600 /etc/shadow
+chown root:root /etc/shadow
+
+# Set User/Group Owner and Permission on the “gshadow” file
+
+chmod 600 /etc/gshadow
+chown root:root /etc/gshadow
+
+# EOF

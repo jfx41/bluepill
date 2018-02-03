@@ -1,0 +1,163 @@
+#!/bin/bash
+
+# root check
+if [ $(id -g) != 0 ]
+then
+	echo "You need root: maybe sudo ?"
+	exit 1
+fi
+
+# False for identified OSes
+ubuntu=0
+centos=0
+unknown=0
+
+# Partitions
+partitions=/tmp /var /var/tmp /var/log /var/share/httpd /var/www
+# Which version of Linux are we working with
+os=$(uname -n | tr '[A-Z]' '[a-z]')
+
+# Check which OS we are working with
+if [ $os == "ubuntu" ]
+then
+	ubuntu=1
+elif [ $os == "centos" ]
+then
+	centos=1
+else
+	unknown=1
+fi
+
+if [ $ubuntu ]
+then
+	# ● apparmor.service - LSB: AppArmor initialization
+	#    Loaded: loaded (/etc/init.d/apparmor; bad; vendor preset: enabled)
+	#    Active: active (exited) since Fri 2018-02-02 16:25:50 PST; 19min ago
+	#      Docs: man:systemd-sysv-generator(8)
+	#   Process: 387 ExecStart=/etc/init.d/apparmor start (code=exited, status=0/SUCCESS)
+
+	# Feb 02 16:25:50 ubuntu systemd[1]: Starting LSB: AppArmor initialization...
+	# Feb 02 16:25:50 ubuntu apparmor[387]:  * Starting AppArmor profiles
+	# Feb 02 16:25:50 ubuntu apparmor[387]: Skipping profile in /etc/apparmor.d/disable: usr.sbin.rsyslogd
+	# Feb 02 16:25:50 ubuntu apparmor[387]:    ...done.
+	# Feb 02 16:25:50 ubuntu systemd[1]: Started LSB: AppArmor initialization.
+
+	apparmor=$(service apparmor status | grep -Eo 'active|inactive')
+
+	if [ $apparmor == "active" ]
+	then
+		# Screw it .. enforce everything
+		echo "AppArmor: enforcing all the things ..."
+		aa-enforce /etc/apparmor.d/*
+		systemctl reload apparmor.service
+	elif [ $apparmor == "inactive" ]
+	then
+		# Enable AppArmor and enfore all policies
+		systemctl apparmor enable
+
+		aa-enforce /etc/apparmor.d/*
+		systemctl start apparmor
+	# Not sure if we'll ever get here
+	else
+		echo "AppArmor: got an unknown state.  Is it installed?"
+	fi
+
+	echo "Installing: fail2ban"
+	apt-get install fail2ban
+
+elif [ $centos ]
+then
+	# Set SELinux to enforcing
+	setenforce enforcing
+
+	# Make the change persistent for reboots
+	sed -i 's/SELINUX=*/SELINUX=enforcing/' /etc/selinux/config
+
+	echo "Installing: fail2ban"
+	yum install fail2ban
+fi
+
+
+#
+# Distro agnostic hardening
+#
+
+# If NETWORKING_IPV6 is not found in sysconfig/network add it
+#if [ -z "$(grep NETWORKING_IPV6 /etc/sysconfig/network)" ]
+#then
+#	echo "NETWORKING_IPV6=no" >> /etc/sysconfig/network
+## It was found, disable it
+#else
+#	sed -i 's/NETWORKING_IPV6=*/NETWORKING_IPV6=no/' /etc/sysconfig/network
+#fi
+#
+## If IPV6INIT is not found in sysconfig/network add it
+#if [ -z "$(grep IPV6INIT /etc/sysconfig/network)" ]
+#then
+#	echo "IPV6INIT=no" >> /etc/sysconfig/network
+## It was found, disable it
+#else
+#	sed -i 's/IPV6INIT=*/IPV6INIT=no/' /etc/sysconfig/network
+#fi
+
+
+# Network hardening
+cat <<EOH >> /etc/sysctl.conf
+# Turn on execshield
+kernel.exec-shield = 1
+
+# Enable randomized virtual memory region placement
+kernel.randomize_va_space = 1
+
+# Enable IP spoofing protection
+net.ipv4.conf.all.rp_filter = 1
+
+# Disable IP source routing
+net.ipv4.conf.all.accept_source_route = 0
+
+# Ignoring broadcasts request
+net.ipv4.icmp_echo_ignore_broadcasts = 1
+net.ipv4.icmp_ignore_bogus_error_messages = 1
+
+# Make sure spoofed packets get logged
+net.ipv4.conf.all.log_martians = 1
+
+# Disable memory dumps
+fs.suid_dumpable = 0
+
+# Disable IPv6
+net.ipv6.conf.all.disable_ipv6 = 1
+net.ipv6.conf.default.disable_ipv6 = 1
+net.ipv6.conf.lo.disable_ipv6 = 1
+EOH
+
+# Apply our changes
+sysctl -p
+
+
+#
+# file system hardening
+#
+
+# Lock down /boot if there is a /boot partiton
+if [ ! -z "$(grep /boot /etc/fstab)" ]
+then
+	echo "Trying to check and harden partition: /boot"
+	# Make /boot read-only
+	sed -i 's~\(.*/boot.*defaults\)~\1,ro~' /etc/fstab
+	mount -o remount,ro /boot
+fi
+
+# Lock down some partitions if they happen to exist
+for part in $partitions
+do
+	echo "Trying to check and harden partition: $part"
+	if [ ! -z "$(grep $partition /etc/fstab)" ]
+	then
+		sed -i "s~\(.*${part}.*defaults\)~\1,nosuid,noexec,nodev~" /etc/fstab
+	fi
+done
+
+echo "Remounting all partitions with hardening configurations"
+# Remount everything
+mount -o remount -a

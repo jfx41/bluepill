@@ -1,0 +1,29 @@
+#!/bin/bash
+
+if [ $(id -g) != 0]
+then 
+	echo "Got sudo?"
+	exit 1
+fi
+
+#Search for Lynis
+
+scanner=$(locate Lynis)
+
+if $scanner >/dev/null 2>&1; then
+	echo "Lynis is installed"
+else 
+	echo "You dont have Lynis, let me fetch it" 
+	apt-get install Lynis -Y
+fi
+
+#Running Lynis Audit and parsing logs for suggestions and installed shells
+
+lynis audit system
+wait
+cat /var/log/lynis-report.dat | grep suggestion | sed -e 's/suggestion\[\]\=//g' > vuln
+cat /var/log/lynis-report.dat | grep installed_package | sed -e 's/installed_package\[\]\=//g' >> vuln
+
+#check for ShellShock Vuln CVE-2014-6271
+env x='() ( :;}; echo "vuln"; exit;' bash -c 'echo not vuln' 2>/dev/null
+

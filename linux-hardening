@@ -192,6 +192,42 @@ then
 	chmod og-rwx /var/spool/cron/root
 fi
 
+
+#Maldet Installation for bothe CentOS and Ubuntu
+if [ $ubuntu ] || [ $centos ]
+then
+	cd /tmp 							#Download and Installation
+	wget http://www.rfxn.com/downloads/maldetect-current.tar.gz 
+	tar -xzvf mal-detect-current.tar.gz
+	cd maldetect-1.6.2
+	./install.sh
+fi
+
+if [ -e ${/var/www/html/} ]						#Monitoring HTML Directory
+then
+	echo "Starting maldet monitoring in html dir"
+	maldet -m /var/www/html						#Other directories should be added
+else
+	echo "One of the directories you chose to monitor doesnt exit"
+fi
+									#Enable all uplads to be scanned with maldet
+if [ pwd = /tmp/maldetect-1.6.2/ ] #Check current path is in the maldet directory
+	then
+	sed -i 's/scan_user_access="0"/scan_user_access="1"/g' conf.maldet
+fi
+
+if cat conf.maldet | grep 'scan_user_access="1"' ; 			#Checking the config file changes
+	then 
+		echo "All file uploads are now being monitored"
+	else
+		echo "Something went wrong adjusting the config file"
+		
+fi
+
+
+
+
+
 # Set User/Group Owner and Permission on “passwd” file
 
 chmod 644 /etc/passwd

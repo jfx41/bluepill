@@ -11,10 +11,13 @@ fi
 deps="git wget curl inotify-tools"
 
 # Ubuntu packages to install
-apt_pkgs="fail2ban lynis libapache2-mod-security2"
+apt_pkgs="apparmor-utils fail2ban lynis libapache2-mod-security2 modsecurity-crs"
 
 # CentOS packages to install
 yum_pkgs="fail2ban lynis mod_security mod_security_crs"
+
+# Touch these files so fail2ban will start
+apache_touch="access.log error.log modsec_audit.log"
 
 # False for identified OSes
 ubuntu=0
@@ -95,36 +98,10 @@ then
 	echo "Installing: $apt_pkgs"
 	apt-get install -y $apt_pkgs
 
-
-	# Add some fail2ban configurations
-	cat <<EOC >> /etc/fail2ban/jail.d/defaults-debian.conf
-
-[apache]
-enabled=true
-
-EOC
-
-	cat <<EOC >> /etc/fail2ban/jail.conf
-
-[modsec]
-enabled  = true
-filter   = modsec
-action   = iptables-multiport[name=ModSec, port="http,https"]
-logpath  = /var/log/apache2/modsec_audit.log
-bantime  = 1728000
-maxretry = 1
-
-EOC
-
-	cat <<EOC >> /etc/fail2ban/filter.d/modsec.conf
-
-[Definition]
-failregex = \[.*?\]\s[\w-]*\s<HOST>\s
-ignoreregex =
-
-EOC
-
-	service fail2ban restart
+	for file in $apache_touch
+	do
+		touch /var/log/apache2/$file
+	done
 
 elif [ $centos == 1 ]
 then
@@ -143,44 +120,79 @@ then
 	echo "Installing: $yum_pkgs"
 	yum install -y $yum_pkgs
 
-
-	# Add fail2ban configurations
-	cat <<EOC >> /etc/fail2ban/jail.d/defaults-centos.conf
-[apache]
-enabled=true
-
-[ssh]
-enabled=true
-
-EOC
-
-	cat <<EOC >> /etc/fail2ban/jail.conf
-
-[modsec]
-enabled  = true
-filter   = modsec
-action   = iptables-multiport[name=ModSec, port="http,https"]
-logpath  = /var/log/httpd/modsec_audit.log
-bantime  = 1728000
-maxretry = 1
-
-EOC
-
-	cat <<EOC >> /etc/fail2ban/filter.d/modsec.conf
-
-[Definition]
-failregex = \[.*?\]\s[\w-]*\s<HOST>\s
-ignoreregex =
-
-EOC
-	service fail2ban restart
-
+	for file in $apache_touch
+	do
+		touch /var/log/httpd/$file
+	done
 fi
 
 
 #
 # Distro agnostic hardening
 #
+
+# Add some fail2ban configurations
+cat <<EOC > /etc/fail2ban/jail.d/apache.conf
+[apache-auth]
+enabled = true
+
+[apache-badbots]
+enabled = true
+
+[apache-noscript]
+enabled = true
+
+[apache-overflows]
+enabled = true
+
+[apache-nohome]
+enabled = true
+
+[apache-botsearch]
+enabled = true
+
+[apache-fakegooglebot]
+enabled = true
+
+[apache-modsecurity]
+enabled = true
+
+[apache-shellshock]
+enabled = true
+
+EOC
+
+cat <<EOC > /etc/fail2ban/jail.d/ssh.conf
+[sshd]
+enabled = true
+
+[sshd-ddos]
+enabled = true
+
+[dropbear]
+enabled = true
+EOC
+
+cat <<EOC >> /etc/fail2ban/jail.conf
+
+[modsec]
+enabled  = true
+filter   = modsec
+action   = iptables-multiport[name=ModSec, port="http,https"]
+logpath  = /var/log/apache2/modsec_audit.log
+bantime  = 1728000
+maxretry = 1
+
+EOC
+
+cat <<EOC > /etc/fail2ban/filter.d/modsec.conf
+[Definition]
+failregex = \[.*?\]\s[\w-]*\s<HOST>\s
+ignoreregex =
+
+EOC
+
+service fail2ban restart
 
 #
 # Maldet installation

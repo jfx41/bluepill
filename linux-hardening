@@ -8,7 +8,7 @@ then
 fi
 
 # Packages we need to make things work
-deps=git wget curl
+deps=git wget curl inotify-tools
 
 # False for identified OSes
 ubuntu=0
@@ -33,7 +33,7 @@ else
 	unknown=1
 fi
 
-if [ $ubuntu ]
+if [ $ubuntu == 1 ]
 then
 	# Install deps
 	apt-get install -y $deps
@@ -94,7 +94,7 @@ EOC
 	service fail2ban restart
 	
 
-elif [ $centos ]
+elif [ $centos == 1 ]
 then
 	# Install deps
 	yum install -y $deps
@@ -163,9 +163,6 @@ rm -rf linux-malware-detect
 
 # Network hardening
 cat <<EOH >> /etc/sysctl.conf
-# Turn on execshield
-kernel.exec-shield = 1
-
 # Enable randomized virtual memory region placement
 kernel.randomize_va_space = 1
 

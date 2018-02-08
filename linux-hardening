@@ -7,13 +7,18 @@ then
 	exit 1
 fi
 
+# Packages we need to make things work
+deps=git wget curl
+
 # False for identified OSes
 ubuntu=0
 centos=0
 unknown=0
 
-# Partitions
-partitions=/tmp /var /var/tmp /var/log /var/share/httpd /var/www
+# Partitions & Maldet directories
+partitions=/tmp /home /var /var/tmp /var/log /var/www /var/www/html
+maldet_dirs=/tmp /etc /home /var/tmp /var/www/html
+
 # Which version of Linux are we working with
 os=$(uname -n | tr '[A-Z]' '[a-z]')
 
@@ -30,6 +35,9 @@ fi
 
 if [ $ubuntu ]
 then
+	# Install deps
+	apt-get install -y $deps
+
 	# ● apparmor.service - LSB: AppArmor initialization
 	#    Loaded: loaded (/etc/init.d/apparmor; bad; vendor preset: enabled)
 	#    Active: active (exited) since Fri 2018-02-02 16:25:50 PST; 19min ago
@@ -62,11 +70,36 @@ then
 		echo "AppArmor: got an unknown state.  Is it installed?"
 	fi
 
+	echo "Installing: mod_security"
+	apt-get install -y libapache2-mod-security2
+
 	echo "Installing: fail2ban"
-	apt-get install fail2ban
+	apt-get install -y fail2ban
+
+	cat <<EOC >> /etc/fail2ban/jail.d/defaults-debian.conf
+[apache]
+enabled=true
+EOC
+
+	cat <<EOC >> /etc/fail2ban/jail.conf
+[modsec]
+enabled  = true
+filter   = modsec
+action   = iptables-multiport[name=ModSec, port="http,https"]
+logpath  = /var/log/apache2/modsec_audit.log
+bantime  = 172800
+maxretry = 1
+EOC
+
+	service fail2ban restart
+	
 
 elif [ $centos ]
 then
+	# Install deps
+	yum install -y $deps
+ 	yum install -y epel-release
+
 	# Set SELinux to enforcing
 	setenforce enforcing
 
@@ -74,7 +107,30 @@ then
 	sed -i 's/SELINUX=*/SELINUX=enforcing/' /etc/selinux/config
 
 	echo "Installing: fail2ban"
-	yum install fail2ban
+	yum install -y fail2ban
+
+
+	cat <<EOC >> /etc/fail2ban/jail.d/defaults-centos.conf
+[apache]
+enabled=true
+
+[ssh]
+enabled=true
+EOC
+
+	cat <<EOC >> /etc/fail2ban/jail.conf
+[modsec]
+enabled  = true
+filter   = modsec
+action   = iptables-multiport[name=ModSec, port="http,https"]
+logpath  = /var/log/httpd/modsec_audit.log
+bantime  = 172800
+maxretry = 1
+EOC
+
+	service fail2ban restart
+	
+
 fi
 
 
@@ -82,24 +138,28 @@ fi
 # Distro agnostic hardening
 #
 
-# If NETWORKING_IPV6 is not found in sysconfig/network add it
-#if [ -z "$(grep NETWORKING_IPV6 /etc/sysconfig/network)" ]
-#then
-#	echo "NETWORKING_IPV6=no" >> /etc/sysconfig/network
-## It was found, disable it
-#else
-#	sed -i 's/NETWORKING_IPV6=*/NETWORKING_IPV6=no/' /etc/sysconfig/network
-#fi
 #
-## If IPV6INIT is not found in sysconfig/network add it
-#if [ -z "$(grep IPV6INIT /etc/sysconfig/network)" ]
-#then
-#	echo "IPV6INIT=no" >> /etc/sysconfig/network
-## It was found, disable it
-#else
-#	sed -i 's/IPV6INIT=*/IPV6INIT=no/' /etc/sysconfig/network
-#fi
+# Maldet installation
+#
+cd /tmp
 
+git clone https://github.com/rfxn/linux-malware-detect.git
+#wget http://www.rfxn.com/downloads/maldetect-current.tar.gz 
+#tar -xzvf mal-detect-current.tar.gz
+#cd maldetect-1.6.2
+
+cd linux-malware-detect
+# Set scan_user_access=1 before we install
+sed -i 's/scan_user_access="0"/scan_user_access="1"/g' files/conf.maldet
+./install.sh
+
+for dir in maldet_dirs
+do
+	echo "Starting maldet monitoring on: $dir"
+	/usr/local/sbin/maldet -m $dir
+done
+
+rm -rf linux-malware-detect
 
 # Network hardening
 cat <<EOH >> /etc/sysctl.conf
@@ -191,45 +251,6 @@ then
 	chown root:root /var/spool/cron/root
 	chmod og-rwx /var/spool/cron/root
 fi
-
-
-#Maldet Installation for bothe CentOS and Ubuntu
-if [ $ubuntu ] || [ $centos ]
-then
-	cd /tmp 							#Download and Installation
-	wget http://www.rfxn.com/downloads/maldetect-current.tar.gz 
-	tar -xzvf mal-detect-current.tar.gz
-	cd maldetect-1.6.2
-	./install.sh
-fi
-
-#Monitoring HTML Directory
-
-if [ -e ${/var/www/html/} ]						
-then
-	echo "Starting maldet monitoring in html dir"
-	maldet -m /var/www/html	
-	#Other directories should be added
-else
-	echo "One of the directories you chose to monitor doesnt exit"
-fi
-#Enable all uplads to be scanned with maldet									
-if [ pwd = /tmp/maldetect-1.6.2/ ] #Check current path is in the maldet directory
-	then
-	sed -i 's/scan_user_access="0"/scan_user_access="1"/g' conf.maldet
-fi
-#Checking the config file changes
-if cat conf.maldet | grep 'scan_user_access="1"' ; 			
-	then 
-		echo "All file uploads are now being monitored"
-	else
-		echo "Something went wrong adjusting the config file"
-		
-fi
-
-
-
-
 
 # Set User/Group Owner and Permission on “passwd” file
 

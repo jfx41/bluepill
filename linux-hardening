@@ -26,11 +26,22 @@ os=$(uname -n | tr '[A-Z]' '[a-z]')
 if [ $os == "ubuntu" ]
 then
 	ubuntu=1
-elif [ $os == "centos" ]
+elif [ -f /etc/redhat-release ]
 then
 	centos=1
 else
-	unknown=1
+	# If the uname approach fails, check for Ubuntu the LSB way
+	if [ -f /etc/lsb-release ]
+	then
+		os=$(grep ^DISTRIB_ID | cut -f2 -d= | tr '[A-Z]' '[a-z]')
+		if [ $os == "ubuntu" ]
+		then
+			os="ubuntu"
+		# Still no idea what this is
+		else
+			unknown=1
+		fi
+	fi
 fi
 
 if [ $ubuntu == 1 ]

@@ -10,6 +10,12 @@ fi
 # Packages we need to make things work
 deps=git wget curl inotify-tools
 
+# Ubuntu packages to install
+apt_pkgs=fail2ban lynis libapache2-mod-security2
+
+# CentOS packages to install
+yum_pkgs=fail2ban lynis mod_security mod_security_crs
+
 # False for identified OSes
 ubuntu=0
 centos=0
@@ -81,35 +87,39 @@ then
 		echo "AppArmor: got an unknown state.  Is it installed?"
 	fi
 
-	echo "Installing: mod_security"
-	apt-get install -y libapache2-mod-security2
 
-	echo "Installing: fail2ban"
-	apt-get install -y fail2ban
+	# Install all the Ubuntu packages
+	echo "Installing: $apt_pkgs"
+	apt-get install -y $apt_pkgs
 
+
+	# Add some fail2ban configurations
 	cat <<EOC >> /etc/fail2ban/jail.d/defaults-debian.conf
+
 [apache]
 enabled=true
+
 EOC
 
 	cat <<EOC >> /etc/fail2ban/jail.conf
+
 [modsec]
 enabled  = true
 filter   = modsec
 action   = iptables-multiport[name=ModSec, port="http,https"]
 logpath  = /var/log/apache2/modsec_audit.log
-bantime  = 172800
+bantime  = 1728000
 maxretry = 1
+
 EOC
 
 	service fail2ban restart
-	
 
 elif [ $centos == 1 ]
 then
 	# Install deps
 	yum install -y $deps
- 	yum install -y epel-release
+ 	yum install -y epel-release # We need this for fail2ban
 
 	# Set SELinux to enforcing
 	setenforce enforcing
@@ -117,30 +127,35 @@ then
 	# Make the change persistent for reboots
 	sed -i 's/SELINUX=*/SELINUX=enforcing/' /etc/selinux/config
 
-	echo "Installing: fail2ban"
-	yum install -y fail2ban
+
+	# Install all the CentOS packages
+	echo "Installing: $yum_pkgs"
+	yum install -y $yum_pkgs
 
 
+	# Add fail2ban configurations
 	cat <<EOC >> /etc/fail2ban/jail.d/defaults-centos.conf
 [apache]
 enabled=true
 
 [ssh]
 enabled=true
+
 EOC
 
 	cat <<EOC >> /etc/fail2ban/jail.conf
+
 [modsec]
 enabled  = true
 filter   = modsec
 action   = iptables-multiport[name=ModSec, port="http,https"]
 logpath  = /var/log/httpd/modsec_audit.log
-bantime  = 172800
+bantime  = 1728000
 maxretry = 1
+
 EOC
 
 	service fail2ban restart
-	
 
 fi
 

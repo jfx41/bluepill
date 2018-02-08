@@ -8,13 +8,13 @@ then
 fi
 
 # Packages we need to make things work
-deps=git wget curl inotify-tools
+deps="git wget curl inotify-tools"
 
 # Ubuntu packages to install
-apt_pkgs=fail2ban lynis libapache2-mod-security2
+apt_pkgs="fail2ban lynis libapache2-mod-security2"
 
 # CentOS packages to install
-yum_pkgs=fail2ban lynis mod_security mod_security_crs
+yum_pkgs="fail2ban lynis mod_security mod_security_crs"
 
 # False for identified OSes
 ubuntu=0
@@ -22,8 +22,11 @@ centos=0
 unknown=0
 
 # Partitions & Maldet directories
-partitions=/tmp /home /var /var/tmp /var/log /var/www /var/www/html
-maldet_dirs=/tmp /etc /home /var/tmp /var/www/html
+partitions="/tmp /home /var /var/tmp /var/log /var/www /var/www/html"
+maldet_dirs="/tmp /etc /home /var/tmp /var/www/html"
+
+# By default we won't remount
+remount=0
 
 # Which version of Linux are we working with
 os=$(uname -n | tr '[A-Z]' '[a-z]')
@@ -113,6 +116,14 @@ maxretry = 1
 
 EOC
 
+	cat <<EOC >> /etc/fail2ban/filter.d/modsec.conf
+
+[Definition]
+failregex = \[.*?\]\s[\w-]*\s<HOST>\s
+ignoreregex =
+
+EOC
+
 	service fail2ban restart
 
 elif [ $centos == 1 ]
@@ -155,6 +166,13 @@ maxretry = 1
 
 EOC
 
+	cat <<EOC >> /etc/fail2ban/filter.d/modsec.conf
+
+[Definition]
+failregex = \[.*?\]\s[\w-]*\s<HOST>\s
+ignoreregex =
+
+EOC
 	service fail2ban restart
 
 fi
@@ -184,6 +202,7 @@ do
 	echo "Starting maldet monitoring on: $dir"
 	/usr/local/sbin/maldet -m $dir
 done
+cd ..
 
 rm -rf linux-malware-detect
 
@@ -200,7 +219,7 @@ net.ipv4.conf.all.accept_source_route = 0
 
 # Ignoring broadcasts request
 net.ipv4.icmp_echo_ignore_broadcasts = 1
-net.ipv4.icmp_ignore_bogus_error_messages = 1
+net.ipv4.icmp_ignore_bogus_error_responses = 1
 
 # Make sure spoofed packets get logged
 net.ipv4.conf.all.log_martians = 1
@@ -223,7 +242,9 @@ sysctl -p
 #
 
 # Lock down /boot if there is a /boot partiton
-if [ ! -z "$(grep /boot /etc/fstab)" ]
+found=$(grep /boot /etc/fstab)
+
+if [ ! -z "$found" ]
 then
 	echo "Trying to check and harden partition: /boot"
 	# Make /boot read-only
@@ -231,19 +252,27 @@ then
 	mount -o remount,ro /boot
 fi
 
+unset found # Gonna set this again
+
 # Lock down some partitions if they happen to exist
 for part in $partitions
 do
+	found=$(grep $part /etc/fstab)
+
 	echo "Trying to check and harden partition: $part"
-	if [ ! -z "$(grep $partition /etc/fstab)" ]
+	if [ ! -z "$found" ]
 	then
 		sed -i "s~\(.*${part}.*defaults\)~\1,nosuid,noexec,nodev~" /etc/fstab
+		remount=1
 	fi
 done
 
-echo "Remounting all partitions with hardening configurations"
-# Remount everything
-mount -o remount -a
+if [ $remount == 1 ]
+then
+	echo "Remounting all partitions with hardening configurations"
+	# Remount everything
+	mount -o remount -a
+fi
 
 
 #

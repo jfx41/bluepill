@@ -360,4 +360,7 @@ chown root:root /etc/shadow
 chmod 600 /etc/gshadow
 chown root:root /etc/gshadow
 
+echo "Running Lynis ..."
+/usr/sbin/lynis audit system
+
 # EOF

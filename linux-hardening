@@ -8,13 +8,15 @@ then
 fi
 
 # Packages we need to make things work
-deps="git wget curl inotify-tools"
+deps="git wget inotify-tools"
 
 # Ubuntu packages to install
 apt_pkgs="apparmor-utils fail2ban lynis libapache2-mod-security2 modsecurity-crs"
+apt_rmpkgs="netcat build-essential autoconf make gcc g++ python perl ruby"
 
 # CentOS packages to install
 yum_pkgs="fail2ban lynis mod_security mod_security_crs"
+yumt_rmpkgs="netcat autoconf make gcc g++ python perl ruby"
 
 # Touch these files so fail2ban will start
 apache_touch="access.log error.log modsec_audit.log"
@@ -98,10 +100,17 @@ then
 	echo "Installing: $apt_pkgs"
 	apt-get install -y $apt_pkgs
 
+	# Needed for fail2ban to start
+	echo "Touching files needed for fail2ban"
+	mkdir -p /var/log/apache2
 	for file in $apache_touch
 	do
 		touch /var/log/apache2/$file
 	done
+
+	# Remove dangerous packages
+	echo "Removing dangerous packages"
+	apt-get purge -y $apt_rmpkgs
 
 elif [ $centos == 1 ]
 then
@@ -110,6 +119,7 @@ then
  	yum install -y epel-release # We need this for fail2ban
 
 	# Set SELinux to enforcing
+	echo "Setting SELinux to: enforcing"
 	setenforce enforcing
 
 	# Make the change persistent for reboots
@@ -120,10 +130,17 @@ then
 	echo "Installing: $yum_pkgs"
 	yum install -y $yum_pkgs
 
+	# Needed for fail2ban to start
+	echo "Touching files needed for fail2ban"
+	mkdir -p /var/log/httpd
 	for file in $apache_touch
 	do
 		touch /var/log/httpd/$file
 	done
+
+	# Remove dangerous packages
+	echo "Removing dangerous packages: "
+	yum uninstall -y $yum_rmpkgs
 fi
 
 
@@ -192,11 +209,13 @@ ignoreregex =
 
 EOC
 
+# Start fail2ban
 service fail2ban restart
 
 #
 # Maldet installation
 #
+echo "Installing: Malware Detection (maldet)"
 cd /tmp
 
 git clone https://github.com/rfxn/linux-malware-detect.git
@@ -205,6 +224,7 @@ git clone https://github.com/rfxn/linux-malware-detect.git
 #cd maldetect-1.6.2
 
 cd linux-malware-detect
+
 # Set scan_user_access=1 before we install
 sed -i 's/scan_user_access="0"/scan_user_access="1"/g' files/conf.maldet
 ./install.sh
@@ -216,6 +236,7 @@ do
 done
 cd ..
 
+# Clean up artificats
 rm -rf linux-malware-detect
 
 # Network hardening
@@ -290,6 +311,9 @@ fi
 #
 # A whole pile of file permissions
 #
+
+echo "Setting file permissions on a bunch of stuff ..."
+
 chown root:root /etc/anacrontab
 chmod og-rwx /etc/anacrontab
 chown root:root /etc/crontab

@@ -397,7 +397,7 @@ echo "Running Lynis ..."
 lynis --quick
 
 echo "Running system wide ClamAV scan."
-clamscan --exclude-dir="^/(proc|sys)/" --exclude-dir="^/usr/local/maldetect*" -i -r /
+clamscan --exclude-dir="/var/lib/clamav/" --exclude-dir="^/(proc|sys)/" --exclude-dir="^/usr/local/maldetect*" -i -r /
 
 # Check for empty passwords and lock those accounts
 echo "Checking for empty passwords ..."

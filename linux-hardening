@@ -11,11 +11,11 @@ fi
 deps="git wget inotify-tools"
 
 # Ubuntu packages to install
-apt_pkgs="apparmor-utils fail2ban lynis libapache2-mod-security2 modsecurity-crs"
+apt_pkgs="apparmor-utils clamav chkrootkit fail2ban lynis libapache2-mod-security2 modsecurity-crs"
 apt_rmpkgs="netcat build-essential autoconf make gcc g++ python perl ruby"
 
 # CentOS packages to install
-yum_pkgs="fail2ban lynis mod_security mod_security_crs"
+yum_pkgs="clamav clamav-server clamav-data clamav-update clamav-filesystem clamav-scanner-systemd clamav-devel clamav-lib clamav-server-systemd fail2ban lynis mod_security mod_security_crs"
 yumt_rmpkgs="netcat autoconf make gcc g++ python perl ruby"
 
 # Touch these files so fail2ban will start
@@ -360,7 +360,30 @@ chown root:root /etc/shadow
 chmod 600 /etc/gshadow
 chown root:root /etc/gshadow
 
+
+#
+# Now run some malware and hardening scans
+#
+if [ $ubuntu == 1 ]
+then
+	echo -n "Waiting for freshclam to install updates "
+	i=0
+	while [ $i -lt 60 ]
+	do
+		echo -n .
+		i=$((i+1))
+		sleep 1s
+	done
+elif [ $centos == 1 ]
+then
+	echo "Waiting for freshclam to install updates"
+	freshclam
+fi
+
 echo "Running Lynis ..."
-/usr/sbin/lynis audit system
+/usr/sbin/lynis --quick
+
+echo "Running system wide ClamAV scan."
+clamscan --exclude-dir="^/(proc|sys)/" --exclude-dir="^/usr/local/maldetect*" -i -r /
 
 # EOF

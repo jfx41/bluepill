@@ -50,7 +50,7 @@ elif [ -f /etc/redhat-release ]
 then
 	centos=1
 	version=$(cat /etc/redhat-release | cut -f4 -d' ' | cut -f1 -d.)
-else
+fi
 
 if [ $ubuntu == 1 ]
 then

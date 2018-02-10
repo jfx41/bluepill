@@ -346,11 +346,11 @@ chown root:root /etc/cron.d
 chmod og-rwx /etc/cron.d
 
 # Set the right and permissions on “/var/spool/cron” for root crontab
-if [ $ubuntu ]
+if [ $ubuntu == 1 ]
 then
 	chown root:root /var/spool/cron/crontabs/root
 	chmod og-rwx /var/spool/cron/crontabs/root
-elif [ $centos ]
+elif [ $centos == 1 ]
 then
 	chown root:root /var/spool/cron/root
 	chmod og-rwx /var/spool/cron/root

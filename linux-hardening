@@ -116,8 +116,8 @@ then
 	#apt-get install ossec-hids-agent
 
 	# Remove dangerous packages
-	echo "Removing dangerous packages"
-	apt-get purge -y $apt_rmpkgs
+	#echo "Removing dangerous packages"
+	#apt-get purge -y $apt_rmpkgs
 
 elif [ $centos == 1 ]
 then
@@ -152,8 +152,8 @@ then
 	#sudo yum install ossec-hids-agent
 
 	# Remove dangerous packages
-	echo "Removing dangerous packages: "
-	yum uninstall -y $yum_rmpkgs
+	#echo "Removing dangerous packages: "
+	#yum uninstall -y $yum_rmpkgs
 fi
 
 

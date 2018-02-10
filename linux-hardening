@@ -394,7 +394,7 @@ then
 fi
 
 echo "Running Lynis ..."
-/usr/sbin/lynis --quick
+lynis --quick
 
 echo "Running system wide ClamAV scan."
 clamscan --exclude-dir="^/(proc|sys)/" --exclude-dir="^/usr/local/maldetect*" -i -r /

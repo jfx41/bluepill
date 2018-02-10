@@ -390,6 +390,7 @@ then
 		i=$((i+1))
 		sleep 1s
 	done
+	echo
 elif [ $centos == 1 ]
 then
 	echo "Waiting for freshclam to install updates"

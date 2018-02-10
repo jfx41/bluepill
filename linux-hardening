@@ -145,6 +145,8 @@ then
 		touch /var/log/httpd/$file
 	done
 
+	ln -s /var/log/httpd /var/log/apache2
+
 	# Add Yum repo configuration
 	#wget -q -O - https://updates.atomicorp.com/installers/atomic | sudo bash
 

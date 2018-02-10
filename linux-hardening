@@ -34,29 +34,23 @@ maldet_dirs="/tmp /etc /home /var/tmp /var/www/html"
 remount=0
 
 # Which version of Linux are we working with
-os=$(uname -n | tr '[A-Z]' '[a-z]')
+#os=$(uname -n | tr '[A-Z]' '[a-z]')
 
-# Check which OS we are working with
-if [ $os == "ubuntu" ]
+# If the uname approach fails, check for Ubuntu the LSB way
+if [ -f /etc/lsb-release ]
 then
-	ubuntu=1
+	source /etc/lsb-release
+	os=$(echo $DISTRIB_ID | tr '[A-Z]' '[a-z]')
+	if [ $os == "ubuntu" ]
+	then
+		ubuntu=1
+		version=$DISTRIB_CODENAME
+	fi
 elif [ -f /etc/redhat-release ]
 then
 	centos=1
+	version=$(cat /etc/redhat-release | cut -f4 -d' ' | cut -f1 -d.)
 else
-	# If the uname approach fails, check for Ubuntu the LSB way
-	if [ -f /etc/lsb-release ]
-	then
-		os=$(grep ^DISTRIB_ID | cut -f2 -d= | tr '[A-Z]' '[a-z]')
-		if [ $os == "ubuntu" ]
-		then
-			os="ubuntu"
-		# Still no idea what this is
-		else
-			unknown=1
-		fi
-	fi
-fi
 
 if [ $ubuntu == 1 ]
 then
@@ -108,6 +102,19 @@ then
 		touch /var/log/apache2/$file
 	done
 
+	#
+	# Installing OSSEC
+	#
+
+	# Add Apt sources.lst
+	#wget -q -O - https://updates.atomicorp.com/installers/atomic | bash
+
+	# Update apt data
+	#apt-get update
+
+	# Agent
+	#apt-get install ossec-hids-agent
+
 	# Remove dangerous packages
 	echo "Removing dangerous packages"
 	apt-get purge -y $apt_rmpkgs
@@ -137,6 +144,12 @@ then
 	do
 		touch /var/log/httpd/$file
 	done
+
+	# Add Yum repo configuration
+	#wget -q -O - https://updates.atomicorp.com/installers/atomic | sudo bash
+
+	# Agent
+	#sudo yum install ossec-hids-agent
 
 	# Remove dangerous packages
 	echo "Removing dangerous packages: "

@@ -386,4 +386,22 @@ echo "Running Lynis ..."
 echo "Running system wide ClamAV scan."
 clamscan --exclude-dir="^/(proc|sys)/" --exclude-dir="^/usr/local/maldetect*" -i -r /
 
+# Check for empty passwords and lock those accounts
+echo "Checking for empty passwords ..."
+awk -F: '{ if ($2 == "") print $1 }' /etc/shadow > /tmp/bluepill.$$
+
+count=$(wc -l /tmp/bluepill.$$ | cut -f1 -d' ')
+
+if [ $count -gt 0 ]
+then
+	echo "Locking $count accounts that had blank passwords:"
+	for user in $(cat /tmp/bluepill.$$)
+	do
+		echo "	Locking: $user"
+		usermod -L $user
+	done
+fi
+
+rm -f /tmp/bluepill.$$ # Cover our tracks
+
 # EOF

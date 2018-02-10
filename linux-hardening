@@ -28,7 +28,7 @@ unknown=0
 
 # Partitions & Maldet directories
 partitions="/tmp /home /var /var/tmp /var/log /var/www /var/www/html"
-maldet_dirs="/tmp /etc /home /var/tmp /var/www/html"
+maldet_dirs="/tmp,/etc,/home,/var/tmp,/var/www/html"
 
 # By default we won't remount
 remount=0
@@ -242,15 +242,16 @@ cd linux-malware-detect
 sed -i 's/scan_user_access="0"/scan_user_access="1"/g' files/conf.maldet
 ./install.sh
 
-for dir in maldet_dirs
-do
-	echo "Starting maldet monitoring on: $dir"
-	/usr/local/sbin/maldet -m $dir
-done
 cd ..
-
 # Clean up artificats
 rm -rf linux-malware-detect
+
+
+#
+# Monitor the directories that are likely problems
+#
+maldet --monitor $maldet_dirs
+
 
 # Network hardening
 cat <<EOH >> /etc/sysctl.conf
